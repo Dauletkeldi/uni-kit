@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPA Counter</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --card:      #22263a;
+      --border:    #2e3350;
+      --accent:    #6c63ff;
+      --accent2:   #a78bfa;
+      --green:     #22c55e;
+      --red:       #ef4444;
+      --text:      #e2e8f0;
+      --muted:     #8892b0;
+      --radius:    14px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 80px;
+    }
+
+    /* ── Header ───────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    header h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 0.95rem;
+    }
+
+    /* ── Tab switcher ─────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 6px;
+      margin-bottom: 36px;
+    }
+    .tab-btn {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      padding: 10px 28px;
+      border-radius: 50px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(108,99,255,.4);
+    }
+
+    /* ── Panels ───────────────────────────────────────── */
+    .panel { display: none; width: 100%; max-width: 640px; }
+    .panel.active { display: flex; flex-direction: column; gap: 20px; }
+
+    /* ── Card ─────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent2);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 16px;
+    }
+
+    /* ── Form elements ────────────────────────────────── */
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input[type="number"], input[type="text"] {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    input:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+
+    /* remove number spinners */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type="number"] { -moz-appearance: textfield; }
+
+    /* ── Course rows ──────────────────────────────────── */
+    .courses-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .course-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px;
+      align-items: center;
+      animation: fadeIn .2s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+
+    .remove-btn {
+      width: 34px; height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
+    }
+    .remove-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+
+    .add-btn {
+      width: 100%;
+      padding: 10px;
+      margin-top: 4px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Buttons ──────────────────────────────────────── */
+    .calc-btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .02em;
+      transition: opacity .2s, transform .1s;
+      box-shadow: 0 4px 24px rgba(108,99,255,.35);
+    }
+    .calc-btn:hover { opacity: .9; }
+    .calc-btn:active { transform: scale(.98); }
+
+    .reset-btn {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .reset-btn:hover { border-color: var(--red); color: var(--red); }
+
+    /* ── Result box ───────────────────────────────────── */
+    .result-box {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 24px;
+      text-align: center;
+      animation: fadeIn .3s ease;
+    }
+    .result-box.show { display: block; }
+    .result-label { font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+    .result-value {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+    .result-grade {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 4px 14px;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    /* ── Error ────────────────────────────────────────── */
+    .error-msg {
+      display: none;
+      color: var(--red);
+      font-size: 0.85rem;
+      margin-top: -8px;
+    }
+    .error-msg.show { display: block; }
+
+    /* ── Breakdown table ──────────────────────────────── */
+    .breakdown {
+      margin-top: 16px;
+      text-align: left;
+    }
+    .breakdown-title {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 500;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    td {
+      padding: 8px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    tr:last-child td { border-bottom: none; }
+    td:nth-child(2), td:nth-child(3) { color: var(--accent2); font-weight: 600; text-align: right; }
+    th:nth-child(2), th:nth-child(3) { text-align: right; }
+
+    /* ── Impact 4-col row ─────────────────────────────── */
+    .impact-row {
+      grid-template-columns: 2fr 1fr 1fr auto !important;
+    }
+
+    /* ── Responsive ───────────────────────────────────── */
+    @media (max-width: 500px) {
+      header h1 { font-size: 1.7rem; }
+      .tabs { flex-direction: row; }
+      .tab-btn { padding: 9px 18px; font-size: 0.88rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>GPA Counter</h1>
+  <p>Calculate your SPA and GPA quickly and accurately</p>
+</header>
+
+<!-- Tab switcher -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('spa', this)">SPA</button>
+  <button class="tab-btn" onclick="switchTab('gpa', this)">GPA</button>
+  <button class="tab-btn" onclick="switchTab('impact', this)">Impact</button>
+</div>
+
+<!-- ═══════════════════════════════════ SPA PANEL ═══════════════════════════ -->
+<div class="panel active" id="panel-spa">
+
+  <div class="card">
+    <h2>Courses</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;margin-bottom:8px;">
+      <span style="font-size:.8rem;color:var(--muted);">Credits</span>
+      <span style="font-size:.8rem;color:var(--muted);">Grade Points (0–4)</span>
+      <span></span>
+    </div>
+    <div class="courses-list" id="spa-courses"></div>
+    <button class="add-btn" onclick="addCourse('spa')">+ Add course</button>
+    <p class="error-msg" id="spa-error"></p>
+  </div>
+
+  <button class="calc-btn" onclick="calculateSPA()">Calculate SPA</button>
+
+  <div class="result-box" id="spa-result">
+    <div class="result-label">Your SPA</div>
+    <div class="result-value" id="spa-value">—</div>
+    <span class="result-grade" id="spa-badge"></span>
+    <div class="breakdown" id="spa-breakdown"></div>
+  </div>
+
+  <button class="reset-btn" onclick="resetSPA()">Reset</button>
+</div>
+
+<!-- ═══════════════════════════════════ GPA PANEL ═══════════════════════════ -->
+<div class="panel" id="panel-gpa">
+
+  <div class="card">
+    <h2>Semesters</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;margin-bottom:8px;">
+      <span style="font-size:.8rem;color:var(--muted);">Total Credits</span>
+      <span style="font-size:.8rem;color:var(--muted);">SPA (0–4)</span>
+      <span></span>
+    </div>
+    <div class="courses-list" id="gpa-semesters"></div>
+    <button class="add-btn" onclick="addCourse('gpa')">+ Add semester</button>
+    <p class="error-msg" id="gpa-error"></p>
+  </div>
+
+  <button class="calc-btn" onclick="calculateGPA()">Calculate GPA</button>
+
+  <div class="result-box" id="gpa-result">
+    <div class="result-label">Your GPA</div>
+    <div class="result-value" id="gpa-value">—</div>
+    <span class="result-grade" id="gpa-badge"></span>
+    <div class="breakdown" id="gpa-breakdown"></div>
+  </div>
+
+  <button class="reset-btn" onclick="resetGPA()">Reset</button>
+</div>
+
+<!-- ════════════════════════════════ IMPACT PANEL ══════════════════════════ -->
+<div class="panel" id="panel-impact">
+
+  <div class="card">
+    <h2>Your Current Standing</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <label for="imp-cur-gpa">Current GPA (0–4)</label>
+        <input type="number" id="imp-cur-gpa" placeholder="e.g. 3.20" min="0" max="4" step="0.01" />
+      </div>
+      <div>
+        <label for="imp-cur-cr">Total credits earned</label>
+        <input type="number" id="imp-cur-cr" placeholder="e.g. 90" min="0" step="1" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Future / Current Semester Courses</h2>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;margin-bottom:8px;">
+      <span style="font-size:.8rem;color:var(--muted);">Course name</span>
+      <span style="font-size:.8rem;color:var(--muted);">Credits</span>
+      <span style="font-size:.8rem;color:var(--muted);">Points (0–4)</span>
+      <span></span>
+    </div>
+    <div class="courses-list" id="impact-courses"></div>
+    <button class="add-btn" onclick="addImpactCourse()">+ Add course</button>
+    <p class="error-msg" id="impact-error"></p>
+  </div>
+
+  <button class="calc-btn" onclick="calculateImpact()">Calculate Impact</button>
+
+  <div class="result-box" id="impact-result">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div>
+        <div class="result-label">Current GPA</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--muted)" id="impact-cur-display">—</div>
+      </div>
+      <div>
+        <div class="result-label">Projected GPA</div>
+        <div style="font-size:1.8rem;font-weight:800" id="impact-proj-display">—</div>
+      </div>
+      <div>
+        <div class="result-label">Change</div>
+        <div style="font-size:1.8rem;font-weight:800" id="impact-delta-display">—</div>
+      </div>
+    </div>
+    <span class="result-grade" id="impact-badge"></span>
+    <div class="breakdown" id="impact-breakdown"></div>
+  </div>
+
+  <button class="reset-btn" onclick="resetImpact()">Reset</button>
+</div>
+
+<script>
+  // ── Tab switching ──────────────────────────────────────────────────────────
+  function switchTab(tab, btn) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  // ── Row factory ────────────────────────────────────────────────────────────
+  let spaCount = 0, gpaCount = 0;
+
+  function addCourse(type) {
+    const list = document.getElementById(type === 'spa' ? 'spa-courses' : 'gpa-semesters');
+    const id   = type === 'spa' ? ++spaCount : ++gpaCount;
+
+    const row = document.createElement('div');
+    row.className = 'course-row';
+    row.id = `${type}-row-${id}`;
+
+    const ph1 = type === 'spa' ? 'e.g. 5'    : 'e.g. 120';
+    const ph2 = type === 'spa' ? 'e.g. 3.67' : 'e.g. 3.50';
+
+    row.innerHTML = `
+      <input type="number" id="${type}-c-${id}" placeholder="${ph1}" min="0" step="0.5" />
+      <input type="number" id="${type}-g-${id}" placeholder="${ph2}" min="0" step="0.01" />
+      <button class="remove-btn" onclick="removeRow('${type}-row-${id}')" title="Remove">×</button>
+    `;
+    list.appendChild(row);
+    row.querySelector('input').focus();
+    hideError(type);
+  }
+
+  function removeRow(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function showError(type, msg) {
+    const el = document.getElementById(type + '-error');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function hideError(type) {
+    document.getElementById(type + '-error').classList.remove('show');
+  }
+
+  function gradeLabel(val) {
+    // val is on 4.0 scale
+    if (val >= 4.00) return ['A — Excellent',       '#22c55e'];
+    if (val >= 3.67) return ['A- — Excellent',      '#22c55e'];
+    if (val >= 3.33) return ['B+ — Good',           '#84cc16'];
+    if (val >= 3.00) return ['B — Good',            '#84cc16'];
+    if (val >= 2.67) return ['B- — Good',           '#84cc16'];
+    if (val >= 2.33) return ['C+ — Satisfactory',   '#eab308'];
+    if (val >= 2.00) return ['C — Satisfactory',    '#eab308'];
+    if (val >= 1.67) return ['C- — Satisfactory',   '#eab308'];
+    if (val >= 1.33) return ['D+ — Pass',           '#f97316'];
+    if (val >= 1.00) return ['D — Pass',            '#f97316'];
+    return                  ['F — Unsatisfactory',  '#ef4444'];
+  }
+
+  function showResult(type, value, rows) {
+    const box   = document.getElementById(type + '-result');
+    const valEl = document.getElementById(type + '-value');
+    const badge = document.getElementById(type + '-badge');
+    const bkEl  = document.getElementById(type + '-breakdown');
+
+    valEl.textContent = value.toFixed(2);
+    box.classList.add('show');
+
+    const [label, color] = gradeLabel(value);
+    badge.textContent = label;
+    badge.style.background = color + '22';
+    badge.style.color       = color;
+    badge.style.border      = `1px solid ${color}55`;
+
+    // Breakdown table
+    const header = type === 'spa'
+      ? '<th>#</th><th style="text-align:right">Credits</th><th style="text-align:right">Grade</th>'
+      : '<th>Semester</th><th style="text-align:right">Credits</th><th style="text-align:right">SPA</th>';
+
+    bkEl.innerHTML = `
+      <div class="breakdown-title">Breakdown</div>
+      <table>
+        <thead><tr>${header}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  // ── SPA ────────────────────────────────────────────────────────────────────
+  function calculateSPA() {
+    hideError('spa');
+    document.getElementById('spa-result').classList.remove('show');
+
+    const rows = document.querySelectorAll('#spa-courses .course-row');
+    if (rows.length === 0) { showError('spa', 'Add at least one course.'); return; }
+
+    let totalCredits = 0, weighted = 0, tableRows = '';
+    for (let i = 0; i < rows.length; i++) {
+      const id  = rows[i].id.replace('spa-row-', '');
+      const cr  = parseFloat(document.getElementById(`spa-c-${id}`).value);
+      const gr  = parseFloat(document.getElementById(`spa-g-${id}`).value);
+      if (isNaN(cr) || isNaN(gr) || cr <= 0 || gr < 0 || gr > 4) {
+        showError('spa', `Row ${i+1}: credits must be > 0 and grade points 0–4 (e.g. 3.67).`); return;
+      }
+      totalCredits += cr;
+      weighted     += cr * gr;
+      tableRows    += `<tr><td>${i+1}</td><td>${cr}</td><td>${gr.toFixed(2)}</td></tr>`;
+    }
+
+    showResult('spa', weighted / totalCredits, tableRows);
+    document.getElementById('spa-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function resetSPA() {
+    document.getElementById('spa-courses').innerHTML = '';
+    document.getElementById('spa-result').classList.remove('show');
+    hideError('spa');
+    spaCount = 0;
+  }
+
+  // ── GPA ────────────────────────────────────────────────────────────────────
+  function calculateGPA() {
+    hideError('gpa');
+    document.getElementById('gpa-result').classList.remove('show');
+
+    const rows = document.querySelectorAll('#gpa-semesters .course-row');
+    if (rows.length === 0) { showError('gpa', 'Add at least one semester.'); return; }
+
+    let totalCr = 0, weighted = 0, tableRows = '';
+    for (let i = 0; i < rows.length; i++) {
+      const id  = rows[i].id.replace('gpa-row-', '');
+      const cr  = parseFloat(document.getElementById(`gpa-c-${id}`).value);
+      const spa = parseFloat(document.getElementById(`gpa-g-${id}`).value);
+      if (isNaN(cr) || isNaN(spa) || cr <= 0 || spa < 0 || spa > 4) {
+        showError('gpa', `Semester ${i+1}: enter valid credits (>0) and SPA (0–4).`); return;
+      }
+      totalCr  += cr;
+      weighted += cr * spa;
+      tableRows += `<tr><td>Semester ${i+1}</td><td>${cr}</td><td>${spa.toFixed(2)}</td></tr>`;
+    }
+
+    showResult('gpa', weighted / totalCr, tableRows);
+    document.getElementById('gpa-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function resetGPA() {
+    document.getElementById('gpa-semesters').innerHTML = '';
+    document.getElementById('gpa-result').classList.remove('show');
+    hideError('gpa');
+    gpaCount = 0;
+  }
+
+  // ── IMPACT ────────────────────────────────────────────────────────────────
+  let impCount = 0;
+
+  function addImpactCourse() {
+    const list = document.getElementById('impact-courses');
+    const id   = ++impCount;
+    const row  = document.createElement('div');
+    row.className = 'course-row impact-row';
+    row.id = `imp-row-${id}`;
+    row.innerHTML = `
+      <input type="text"   id="imp-name-${id}" placeholder="e.g. Math"  />
+      <input type="number" id="imp-cr-${id}"   placeholder="Credits"  min="0" step="0.5" />
+      <input type="number" id="imp-gr-${id}"   placeholder="0–4"      min="0" max="4" step="0.01" />
+      <button class="remove-btn" onclick="removeRow('imp-row-${id}')" title="Remove">×</button>
+    `;
+    list.appendChild(row);
+    row.querySelector('input').focus();
+    hideError('impact');
+  }
+
+  function calculateImpact() {
+    hideError('impact');
+    document.getElementById('impact-result').classList.remove('show');
+
+    const curGPA = parseFloat(document.getElementById('imp-cur-gpa').value);
+    const curCr  = parseFloat(document.getElementById('imp-cur-cr').value);
+
+    if (isNaN(curGPA) || curGPA < 0 || curGPA > 4) { showError('impact', 'Enter your current GPA (0–4).'); return; }
+    if (isNaN(curCr)  || curCr  < 0)                { showError('impact', 'Enter your total earned credits.'); return; }
+
+    const rows = document.querySelectorAll('#impact-courses .impact-row');
+    if (rows.length === 0) { showError('impact', 'Add at least one future course.'); return; }
+
+    const courses = [];
+    for (let i = 0; i < rows.length; i++) {
+      const id   = rows[i].id.replace('imp-row-', '');
+      const name = document.getElementById(`imp-name-${id}`).value.trim() || `Course ${i+1}`;
+      const cr   = parseFloat(document.getElementById(`imp-cr-${id}`).value);
+      const gr   = parseFloat(document.getElementById(`imp-gr-${id}`).value);
+      if (isNaN(cr) || cr <= 0 || isNaN(gr) || gr < 0 || gr > 4) {
+        showError('impact', `"${name}": enter valid credits (>0) and grade points (0–4).`); return;
+      }
+      courses.push({ name, cr, gr });
+    }
+
+    // Base weighted points
+    const basePoints = curGPA * curCr;
+
+    // Projected GPA with ALL new courses
+    const newTotalCr  = curCr  + courses.reduce((s, c) => s + c.cr, 0);
+    const newPoints   = basePoints + courses.reduce((s, c) => s + c.cr * c.gr, 0);
+    const projectedGPA = newPoints / newTotalCr;
+
+    // Per-course impact
+    let tableRows = '';
+    courses.forEach(c => {
+      // GPA if only this course were added
+      const singleGPA   = (basePoints + c.cr * c.gr) / (curCr + c.cr);
+      const delta       = singleGPA - curGPA;
+      const sign        = delta >= 0 ? '+' : '';
+      const deltaColor  = delta > 0.005 ? '#22c55e' : delta < -0.005 ? '#ef4444' : '#8892b0';
+      const [glabel]    = gradeLabel(c.gr);
+      tableRows += `
+        <tr>
+          <td>${c.name}</td>
+          <td style="text-align:right">${c.cr}</td>
+          <td style="text-align:right">${c.gr.toFixed(2)}<br><small style="color:var(--muted);font-weight:400">${glabel}</small></td>
+          <td style="text-align:right;color:${deltaColor};font-weight:700">${sign}${delta.toFixed(3)}</td>
+        </tr>`;
+    });
+
+    const delta        = projectedGPA - curGPA;
+    const sign         = delta >= 0 ? '+' : '';
+    const deltaColor   = delta > 0.005 ? '#22c55e' : delta < -0.005 ? '#ef4444' : '#8892b0';
+    const [projLabel, projColor] = gradeLabel(projectedGPA);
+
+    document.getElementById('impact-cur-display').textContent  = curGPA.toFixed(2);
+    document.getElementById('impact-proj-display').textContent = projectedGPA.toFixed(2);
+    document.getElementById('impact-proj-display').style.color = projColor;
+    document.getElementById('impact-delta-display').textContent = `${sign}${delta.toFixed(3)}`;
+    document.getElementById('impact-delta-display').style.color = deltaColor;
+    document.getElementById('impact-badge').textContent         = projLabel;
+    document.getElementById('impact-badge').style.background    = projColor + '22';
+    document.getElementById('impact-badge').style.color         = projColor;
+    document.getElementById('impact-badge').style.border        = `1px solid ${projColor}55`;
+
+    document.getElementById('impact-breakdown').innerHTML = `
+      <div class="breakdown-title">Per-course influence on GPA</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Course</th>
+            <th style="text-align:right">Cr</th>
+            <th style="text-align:right">Grade</th>
+            <th style="text-align:right">GPA shift</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      <p style="font-size:.8rem;color:var(--muted);margin-top:12px">
+        "GPA shift" = how much your GPA would move if only that course were added to your record.
+      </p>`;
+
+    document.getElementById('impact-result').classList.add('show');
+    document.getElementById('impact-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function resetImpact() {
+    document.getElementById('imp-cur-gpa').value = '';
+    document.getElementById('imp-cur-cr').value  = '';
+    document.getElementById('impact-courses').innerHTML = '';
+    document.getElementById('impact-result').classList.remove('show');
+    hideError('impact');
+    impCount = 0;
+  }
+
+  // ── Init with one empty row each ───────────────────────────────────────────
+  addCourse('spa');
+  addCourse('gpa');
+  addImpactCourse();
+</script>
+</body>
+</html>
