@@ -787,6 +787,11 @@ function downloadCard() {
 let _mysduData  = null;   // cached last fetch result
 let _mysduToken = null;   // pending 2FA token
 
+function _backendUrl() {
+  const el = document.getElementById('mysdu-url');
+  return (el ? el.value.trim().replace(/\/$/, '') : 'http://localhost:5001');
+}
+
 async function importMySdu() {
   const errEl = document.getElementById('mysdu-error');
   const btn   = document.getElementById('mysdu-btn');
@@ -811,7 +816,7 @@ async function importMySdu() {
   btn.textContent = 'Logging in…';
 
   try {
-    const resp = await fetch('http://127.0.0.1:5001/api/mysdu/login', {
+    const resp = await fetch(`${_backendUrl()}/api/mysdu/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: user, password: pass }),
@@ -862,7 +867,7 @@ async function _submitOtp(errEl, btn) {
   btn.textContent = 'Verifying…';
 
   try {
-    const resp = await fetch('http://127.0.0.1:5001/api/mysdu/verify', {
+    const resp = await fetch(`${_backendUrl()}/api/mysdu/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: _mysduToken, otp }),

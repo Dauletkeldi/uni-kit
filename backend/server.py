@@ -380,7 +380,16 @@ def health():
 # ── main ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print("MySdu proxy running at http://localhost:5001")
-    print("Step 1: POST /api/mysdu/login   { username, password }")
-    print("Step 2: POST /api/mysdu/verify  { token, otp }  (if 2FA required)")
-    app.run(host="127.0.0.1", port=5001, debug=False)
+    import socket
+    # Get local network IP so user can share it with other devices
+    try:
+        local_ip = socket.gethostbyname(socket.gethostname())
+    except Exception:
+        local_ip = "?.?.?.?"
+    print("=" * 50)
+    print("MySdu proxy started")
+    print(f"  Local:   http://localhost:5001")
+    print(f"  Network: http://{local_ip}:5001  ← use this on other devices")
+    print("=" * 50)
+    # 0.0.0.0 = accept connections from all network interfaces (LAN, not just localhost)
+    app.run(host="0.0.0.0", port=5001, debug=False)

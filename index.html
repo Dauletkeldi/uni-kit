@@ -389,6 +389,11 @@
     <input type="password" id="mysdu-pass" placeholder="Your MySdu password" autocomplete="current-password" />
 
     <!-- OTP step — hidden until 2FA is triggered -->
+    <div style="margin-top:12px">
+      <label style="font-size:.78rem;color:var(--muted)">Backend URL <span style="opacity:.6">(default: localhost · change to your Mac's IP for other devices)</span></label>
+      <input type="text" id="mysdu-url" value="http://localhost:5001" style="font-size:.82rem;color:var(--muted)" />
+    </div>
+
     <div id="mysdu-otp-wrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;margin-bottom:14px;font-size:.82rem;color:var(--muted)">
         📧 An OTP code was sent to your SDU email. Enter it below.
