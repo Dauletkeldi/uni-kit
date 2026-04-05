@@ -217,17 +217,22 @@ def scrape_transcript(session: requests.Session) -> list[dict]:
             point    = to_float(texts[6])
             trad     = texts[7]
 
-            # Skip header row and "In progress" rows (no grade)
-            if credits is None or grade is None:
+                # Skip header rows (non-numeric credits)
+            if credits is None:
                 continue
             # Skip obvious header row by checking code looks like a course code
             if not re.match(r'^[A-Z]{2,4}\s*\d{3}', code):
                 continue
+            # Include "In Progress" rows (grade=None) — useful for Impact tab
 
             current_semester["courses"].append({
                 "code": code, "title": title, "credits": credits,
-                "ects": ects, "grade": grade, "letter": letter,
-                "point": point, "traditional": trad,
+                "ects": ects,
+                "grade": grade,          # None if In Progress
+                "letter": letter,
+                "point": point,
+                "traditional": trad,
+                "in_progress": grade is None,
             })
         except (IndexError, ValueError):
             continue
@@ -245,13 +250,12 @@ def scrape_attendance(session: requests.Session) -> list[dict]:
     soup = BeautifulSoup(resp.text, "html.parser")
     courses = []
 
-    # Target main content div to skip navigation sidebar
+    # Target main content div to avoid nav sidebar
     content = soup.find("div", id="divModule") or soup
 
-    # Nav keywords that should never appear as course names
-    NAV_SKIP = {"home page", "sign out", "transcript", "grades list",
-                "course schedule", "messages", "settings", "my profile",
-                "academic operations", "information", "services", "profile"}
+    SKIP_EXACT = {"дисциплина", "course", "пән", "discipline", "n", "№", "name",
+                  "course name", "subject", "пәннің атауы"}
+    SKIP_NAV   = {"sign out", "home page", "academic operations", "portal guideline"}
 
     for row in content.select("table tr"):
         cells = row.find_all("td")
@@ -259,59 +263,64 @@ def scrape_attendance(session: requests.Session) -> list[dict]:
             continue
 
         texts = [_clean(c.get_text()) for c in cells]
-        course_name = texts[0].strip()
 
-        # Skip empty, header, or navigation rows
+        # Determine course name:
+        # Some tables have: №|name|...|%
+        # Others have:      name|...|%
+        # Heuristic: if texts[0] is a short integer, course name is in texts[1]
+        if re.fullmatch(r'\d{1,3}', texts[0]):
+            name_idx = 1
+        else:
+            name_idx = 0
+
+        if name_idx >= len(texts):
+            continue
+
+        course_name = texts[name_idx].strip()
+
+        # Skip empty or header rows
         if not course_name:
             continue
-        if course_name.lower() in ("дисциплина", "course", "пән", "discipline", "n", "№"):
+        if course_name.lower() in SKIP_EXACT:
             continue
-        if any(nav in course_name.lower() for nav in NAV_SKIP):
+        if any(nav in course_name.lower() for nav in SKIP_NAV):
             continue
-        # Skip rows where first cell is a plain number (row index)
-        if re.fullmatch(r'\d+', course_name):
-            continue
-        # Skip very long strings that are concatenated nav links
-        if len(course_name) > 120:
+        # Skip very long concatenated strings (nav sidebar bleed)
+        if len(course_name) > 150:
             continue
 
-        try:
-            # Find absence % — last cell containing %
-            pct = None
-            total_hours = None
-            absences = None
-
-            for t in reversed(texts):
-                if '%' in t:
-                    try:
-                        pct = float(t.replace('%', '').strip())
-                        break
-                    except ValueError:
-                        pass
-
-            if pct is None:
-                continue
-
-            # Try to grab total hours and absence count from numeric cells
-            nums = []
-            for t in texts[1:]:
-                t2 = t.replace('%','').strip()
+        # Find the last cell that contains %
+        pct = None
+        for t in reversed(texts):
+            t2 = t.replace('%', '').strip()
+            if '%' in t and t2:
                 try:
-                    nums.append(int(float(t2)))
+                    pct = float(t2)
+                    break
                 except ValueError:
                     pass
-            if len(nums) >= 2:
-                absences    = nums[-2]
-                total_hours = nums[-1]
 
-            courses.append({
-                "course": course_name,
-                "total_hours": total_hours,
-                "absences": absences,
-                "absence_pct": round(pct, 2),
-            })
-        except (IndexError, ValueError):
+        if pct is None:
             continue
+
+        # Grab numeric values for total_hours and absences
+        nums = []
+        for t in texts[name_idx + 1:]:
+            t2 = t.replace('%', '').strip()
+            try:
+                nums.append(int(float(t2)))
+            except ValueError:
+                pass
+
+        total_hours = nums[-1] if len(nums) >= 1 else None
+        absences    = nums[-2] if len(nums) >= 2 else None
+
+        courses.append({
+            "course":       course_name,
+            "total_hours":  total_hours,
+            "absences":     absences,
+            "absence_pct":  round(pct, 2),
+        })
 
     return courses
 

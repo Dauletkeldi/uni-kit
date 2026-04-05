@@ -839,6 +839,7 @@ async function importMySdu() {
     _mysduData  = data;
     renderMySduSummary(data);
     document.getElementById('mysdu-result').style.display = 'block';
+    if (data.attendance && data.attendance.length) _autoFillAttendance(data.attendance);
 
   } catch (e) {
     errEl.textContent = 'Cannot reach backend. Make sure server.py is running on port 5001.';
@@ -885,6 +886,7 @@ async function _submitOtp(errEl, btn) {
     document.getElementById('mysdu-otp').value = '';
     renderMySduSummary(data);
     document.getElementById('mysdu-result').style.display = 'block';
+    if (data.attendance && data.attendance.length) _autoFillAttendance(data.attendance);
     btn.textContent = 'Fetch from MySdu';
 
   } catch (e) {
@@ -912,19 +914,20 @@ function renderMySduSummary(data) {
     transcript.forEach((sem, i) => {
       const spa  = sem.spa  != null ? sem.spa.toFixed(2)  : '?';
       const gpa  = sem.gpa  != null ? sem.gpa.toFixed(2)  : '?';
-      const cr   = sem.credits != null ? sem.credits : '?';
+      const ects = sem.ects != null ? sem.ects : '?';
       const courses = sem.courses ? sem.courses.length : 0;
-      const isCurrent = sem.spa === 0 || sem.spa == null;
-      html += `<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 14px;font-size:.83rem${isCurrent ? ';opacity:.65' : ''}">
+      const isCurrent = !sem.spa || sem.spa === 0;
+      html += `<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 14px;font-size:.83rem${isCurrent ? ';opacity:.6' : ''}">
         <span style="font-weight:600">${sem.semester || 'Semester ' + (i+1)}</span>
         <span style="float:right;color:var(--muted)">${courses} courses${isCurrent ? ' · In Progress' : ''}</span>
-        <div style="margin-top:4px;color:var(--muted)">SPA: <strong style="color:var(--accent2)">${spa}</strong> &nbsp; GPA: <strong style="color:var(--accent2)">${gpa}</strong> &nbsp; Credits: <strong>${cr}</strong></div>
+        <div style="margin-top:4px;color:var(--muted)">SPA: <strong style="color:var(--accent2)">${spa}</strong> &nbsp; GPA: <strong style="color:var(--accent2)">${gpa}</strong> &nbsp; ECTS: <strong>${ects}</strong></div>
       </div>`;
     });
 
+    const totalEcts = completed.reduce((a, s) => a + (s.ects || 0), 0);
     if (lastGPA != null) {
       html += `<div style="margin-top:10px;background:var(--bg);border:1px solid var(--accent);border-radius:var(--r-sm);padding:10px 14px;font-size:.83rem">
-        Completed: <strong>${totalCr}</strong> credits &nbsp;·&nbsp; GPA: <strong style="color:var(--accent2)">${lastGPA.toFixed(2)}</strong>
+        Completed: <strong>${totalEcts}</strong> ECTS &nbsp;·&nbsp; GPA: <strong style="color:var(--accent2)">${lastGPA.toFixed(2)}</strong>
       </div>`;
     }
   } else {
@@ -950,23 +953,22 @@ function applyMySduToImpact() {
   if (!_mysduData || !_mysduData.transcript) return;
   const transcript = _mysduData.transcript;
 
-  // Completed semesters = those with spa > 0 and credits
-  const completed = transcript.filter(s => s.spa && s.spa > 0 && s.credits);
+  // Completed semesters = spa > 0 and ects present
+  const completed = transcript.filter(s => s.spa && s.spa > 0 && s.ects);
   if (!completed.length) return;
 
-  // Total credits from all completed semesters
-  const totalCr = completed.reduce((a, s) => a + (s.credits || 0), 0);
-  // GPA from last completed semester footer
-  const lastGPA = completed[completed.length - 1].gpa;
+  // Total ECTS from completed semesters (SDU uses ECTS for GPA)
+  const totalEcts = completed.reduce((a, s) => a + (s.ects || 0), 0);
+  const lastGPA   = completed[completed.length - 1].gpa;
 
-  // Fill Impact "Current Standing" inputs
   document.getElementById('imp-cur-gpa').value = lastGPA != null ? lastGPA.toFixed(2) : '';
-  document.getElementById('imp-cur-cr').value  = totalCr;
+  document.getElementById('imp-cur-cr').value  = totalEcts;
 
-  // Find "in progress" semester (spa === 0 or null) and pre-fill its courses
+  // Current (In Progress) semester — pre-fill courses with ECTS, leave grade blank
   const currentSem = transcript.find(s => !s.spa || s.spa === 0);
   if (currentSem && currentSem.courses && currentSem.courses.length) {
     document.getElementById('impact-courses').innerHTML = '';
+    impCount = 0;
     currentSem.courses.forEach(c => {
       addImpactCourse();
       const rows = document.getElementById('impact-courses').querySelectorAll('.impact-row');
@@ -974,12 +976,11 @@ function applyMySduToImpact() {
       if (!last) return;
       const inputs = last.querySelectorAll('input');
       if (inputs[0]) inputs[0].value = c.title || c.code;
-      if (inputs[1]) inputs[1].value = c.credits ?? '';
-      // Leave grade empty — user fills in expected grade
+      if (inputs[1]) inputs[1].value = c.ects ?? c.credits ?? '';
+      // inputs[2] = grade — leave empty for user to fill
     });
   }
 
-  // Switch to Impact tab
   const impBtn = [...document.querySelectorAll('.tab-btn')].find(b => b.textContent.includes('Impact'));
   if (impBtn) switchTab('impact', impBtn);
 }
@@ -1009,11 +1010,7 @@ function applyMySduToGPA() {
   setTimeout(() => renderHistory(), 100);
 }
 
-function applyMySduToAttendance() {
-  if (!_mysduData || !_mysduData.attendance) return;
-  const courses = _mysduData.attendance;
-  if (!courses.length) return;
-
+function _autoFillAttendance(courses) {
   const attContainer = document.getElementById('att-rows');
   attContainer.innerHTML = '';
   courses.forEach(c => {
@@ -1026,10 +1023,14 @@ function applyMySduToAttendance() {
     if (inputs[1]) inputs[1].value = c.total_hours ?? '';
     if (inputs[2]) inputs[2].value = c.absence_pct != null ? c.absence_pct.toFixed(1) : '';
   });
+  setTimeout(() => calcAttendance(), 100);
+}
 
+function applyMySduToAttendance() {
+  if (!_mysduData || !_mysduData.attendance || !_mysduData.attendance.length) return;
+  _autoFillAttendance(_mysduData.attendance);
   const attBtn = [...document.querySelectorAll('.tab-btn')].find(b => b.textContent.includes('Attendance'));
   if (attBtn) switchTab('attendance', attBtn);
-  setTimeout(() => calcAttendance(), 100);
 }
 
 // ═══════════════════════════════════════════════════════════
