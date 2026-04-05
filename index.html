@@ -33,10 +33,8 @@
 <div class="panel active" id="panel-spa">
   <div class="card">
     <h2>Courses <span class="saved-dot" id="spa-saved"></span></h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:9px;margin-bottom:8px">
-      <span style="font-size:.78rem;color:var(--muted)">Credits</span>
-      <span style="font-size:.78rem;color:var(--muted)">Grade Points (0–4)</span>
-      <span></span>
+    <div class="col-labels" style="grid-template-columns:1fr 1fr auto">
+      <span>Credits</span><span>Grade Points (0–4)</span><span></span>
     </div>
     <div class="courses-list" id="spa-courses"></div>
     <button class="add-btn" onclick="addCourse('spa')">+ Add course</button>
@@ -57,10 +55,8 @@
 <div class="panel" id="panel-gpa">
   <div class="card">
     <h2>Semesters <span class="saved-dot" id="gpa-saved"></span></h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:9px;margin-bottom:8px">
-      <span style="font-size:.78rem;color:var(--muted)">Total Credits</span>
-      <span style="font-size:.78rem;color:var(--muted)">SPA (0–4)</span>
-      <span></span>
+    <div class="col-labels" style="grid-template-columns:1fr 1fr auto">
+      <span>Total Credits</span><span>SPA (0–4)</span><span></span>
     </div>
     <div class="courses-list" id="gpa-semesters"></div>
     <button class="add-btn" onclick="addCourse('gpa')">+ Add semester</button>
@@ -94,11 +90,8 @@
   </div>
   <div class="card">
     <h2>Future Courses</h2>
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:9px;margin-bottom:8px">
-      <span style="font-size:.78rem;color:var(--muted)">Name</span>
-      <span style="font-size:.78rem;color:var(--muted)">Credits</span>
-      <span style="font-size:.78rem;color:var(--muted)">Points</span>
-      <span></span>
+    <div class="col-labels" style="grid-template-columns:2fr 1fr 1fr auto">
+      <span>Name</span><span>Credits</span><span>Points</span><span></span>
     </div>
     <div class="courses-list" id="impact-courses"></div>
     <button class="add-btn" onclick="addImpactCourse()">+ Add course</button>
@@ -187,11 +180,8 @@
 <div class="panel" id="panel-history">
   <div class="card">
     <h2>Semester History</h2>
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:9px;margin-bottom:8px">
-      <span style="font-size:.78rem;color:var(--muted)">Semester name</span>
-      <span style="font-size:.78rem;color:var(--muted)">Credits</span>
-      <span style="font-size:.78rem;color:var(--muted)">SPA</span>
-      <span></span>
+    <div class="col-labels" style="grid-template-columns:2fr 1fr 1fr auto">
+      <span>Semester name</span><span>Credits</span><span>SPA</span><span></span>
     </div>
     <div class="courses-list" id="hist-rows"></div>
     <button class="add-btn" onclick="addHistRow()">+ Add semester</button>
@@ -214,11 +204,8 @@
 
   <div class="card">
     <h2>Courses <small style="font-weight:400;color:var(--muted);font-size:.72rem;text-transform:none;letter-spacing:0">Absence limit: 30%</small></h2>
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:8px">
-      <span style="font-size:.75rem;color:var(--muted)">Course name</span>
-      <span style="font-size:.75rem;color:var(--muted)">Total hours</span>
-      <span style="font-size:.75rem;color:var(--muted)">Absence %</span>
-      <span></span>
+    <div class="col-labels" style="grid-template-columns:2fr 1fr 1fr auto">
+      <span>Course name</span><span>Total hours</span><span>Absence %</span><span></span>
     </div>
     <div class="courses-list" id="att-rows"></div>
     <button class="add-btn" onclick="addAttRow()">+ Add course</button>
