@@ -152,49 +152,70 @@ def scrape_transcript(session: requests.Session) -> list[dict]:
     semesters = []
     current_semester = None
 
-    for row in soup.select("table tr"):
+    # Target the main content div, not the entire page (avoids nav sidebar)
+    content = soup.find("div", id="divModule") or soup
+
+    for row in content.select("table tr"):
         cells = row.find_all("td")
         if not cells:
             continue
 
+        # Semester header: single cell (colspan=8) containing "YYYY - YYYY. N"
         if len(cells) == 1:
             text = _clean(cells[0].get_text())
-            if re.search(r'\d{4}[-–]\d{4}', text):
-                current_semester = {"semester": text, "courses": [],
+            # matches "2023 - 2024. 1" or "2023-2024. 1" etc.
+            if re.search(r'\d{4}\s*[-–]\s*\d{4}', text):
+                current_semester = {"semester": text.strip(), "courses": [],
                                     "sa": None, "ga": None, "spa": None, "gpa": None}
                 semesters.append(current_semester)
             continue
 
+        # Semester footer: maroon style with SA/GA/SPA/GPA
         style = row.get("style", "")
         if "Maroon" in style or "maroon" in style:
             if current_semester is None:
                 continue
             full_text = " ".join(_clean(c.get_text()) for c in cells)
-            for key, pat in [("sa", r'SA[:\s]+(\d+\.?\d*)'),
-                             ("ga", r'GA[:\s]+(\d+\.?\d*)'),
-                             ("spa", r'SPA[:\s]+(\d+\.?\d*)'),
-                             ("gpa", r'GPA[:\s]+(\d+\.?\d*)')]:
+            for key, pat in [("sa",  r'SA\s*:\s*(\d+\.?\d*)'),
+                             ("ga",  r'GA\s*:\s*(\d+\.?\d*)'),
+                             ("spa", r'SPA\s*:\s*(\d+\.?\d*)'),
+                             ("gpa", r'GPA\s*:\s*(\d+\.?\d*)')]:
                 m = re.search(pat, full_text)
                 if m:
                     current_semester[key] = float(m.group(1))
             continue
 
-        if current_semester is None or len(cells) < 7:
+        # Course row: must have exactly 8 cells (code, title, credit, ects, grade, letter, point, traditional)
+        if current_semester is None or len(cells) != 8:
             continue
 
         texts = [_clean(c.get_text()) for c in cells]
         try:
-            credits = float(texts[3]) if texts[3].replace('.','',1).isdigit() else None
-            grade   = float(texts[5]) if texts[5].replace('.','',1).isdigit() else None
+            def to_float(s):
+                s = s.strip()
+                try: return float(s)
+                except: return None
+
+            code     = texts[0]
+            title    = texts[1]
+            credits  = to_float(texts[2])
+            ects     = to_float(texts[3])
+            grade    = to_float(texts[4])
+            letter   = texts[5]
+            point    = to_float(texts[6])
+            trad     = texts[7]
+
+            # Skip header row and "In progress" rows (no grade)
             if credits is None or grade is None:
                 continue
+            # Skip obvious header row by checking code looks like a course code
+            if not re.match(r'^[A-Z]{2,4}\s*\d{3}', code):
+                continue
+
             current_semester["courses"].append({
-                "code": texts[1], "title": texts[2], "credits": credits,
-                "ects": float(texts[4]) if texts[4].replace('.','',1).isdigit() else None,
-                "grade": grade,
-                "letter": texts[6] if len(texts) > 6 else "",
-                "point": float(texts[7]) if len(texts) > 7 and texts[7].replace('.','',1).isdigit() else None,
-                "traditional": texts[8] if len(texts) > 8 else "",
+                "code": code, "title": title, "credits": credits,
+                "ects": ects, "grade": grade, "letter": letter,
+                "point": point, "traditional": trad,
             })
         except (IndexError, ValueError):
             continue
@@ -212,16 +233,42 @@ def scrape_attendance(session: requests.Session) -> list[dict]:
     soup = BeautifulSoup(resp.text, "html.parser")
     courses = []
 
-    for row in soup.select("table tr"):
+    # Target main content div to skip navigation sidebar
+    content = soup.find("div", id="divModule") or soup
+
+    # Nav keywords that should never appear as course names
+    NAV_SKIP = {"home page", "sign out", "transcript", "grades list",
+                "course schedule", "messages", "settings", "my profile",
+                "academic operations", "information", "services", "profile"}
+
+    for row in content.select("table tr"):
         cells = row.find_all("td")
-        if len(cells) < 4:
+        if len(cells) < 3:
             continue
+
         texts = [_clean(c.get_text()) for c in cells]
-        course_name = texts[0]
-        if not course_name or course_name.lower() in ("", "дисциплина", "course", "пән"):
+        course_name = texts[0].strip()
+
+        # Skip empty, header, or navigation rows
+        if not course_name:
             continue
+        if course_name.lower() in ("дисциплина", "course", "пән", "discipline", "n", "№"):
+            continue
+        if any(nav in course_name.lower() for nav in NAV_SKIP):
+            continue
+        # Skip rows where first cell is a plain number (row index)
+        if re.fullmatch(r'\d+', course_name):
+            continue
+        # Skip very long strings that are concatenated nav links
+        if len(course_name) > 120:
+            continue
+
         try:
+            # Find absence % — last cell containing %
             pct = None
+            total_hours = None
+            absences = None
+
             for t in reversed(texts):
                 if '%' in t:
                     try:
@@ -233,11 +280,23 @@ def scrape_attendance(session: requests.Session) -> list[dict]:
             if pct is None:
                 continue
 
+            # Try to grab total hours and absence count from numeric cells
+            nums = []
+            for t in texts[1:]:
+                t2 = t.replace('%','').strip()
+                try:
+                    nums.append(int(float(t2)))
+                except ValueError:
+                    pass
+            if len(nums) >= 2:
+                absences    = nums[-2]
+                total_hours = nums[-1]
+
             courses.append({
                 "course": course_name,
-                "total_hours": None,
-                "absences": None,
-                "absence_pct": pct,
+                "total_hours": total_hours,
+                "absences": absences,
+                "absence_pct": round(pct, 2),
             })
         except (IndexError, ValueError):
             continue
